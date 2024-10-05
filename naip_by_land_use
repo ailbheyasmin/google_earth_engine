@@ -1,0 +1,134 @@
+//create a collection of images from the NAIP archive of top-of-atmosphere(TOA)
+//reflectance product by filtering it using dates of 2012 & geometric boundaries
+var collection = ee.ImageCollection('USDA/NAIP/DOQQ')
+  .filterDate('2012-05-20','2012-07-20')
+  .filterBounds(aoi_naip)
+print(collection);
+// Spatially mosaic the images in the collection, clip to aoi, and display.
+var mosaic = collection.mosaic().clip(aoi_naip);
+// visualize the image using true color composite
+var vizParams = {bands: ['R', 'G', 'B'],min:0,max:255};
+Map.setCenter(-122.0119, 38.0717, 11);
+Map.addLayer(mosaic, vizParams, 'NAIP true color composite');
+// calculate mean band values just within the aoi region boundaries
+var mean_image = mosaic.reduceRegion({
+  reducer: ee.Reducer.mean(), //specify reducer function, can be mean, min, max,median, etc
+  geometry: aoi_naip, // designate geometry variable
+  scale: 1, // set the spatial scale, in this case 1m
+  bestEffort: true, // always set this
+});
+print('mean_image', mean_image); //display mean values in the console;
+// Define and display a FeatureCollection of three known points.
+var points = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point(-121.82557, 38.0193), {'label': 'green veg'}),
+  ee.Feature(ee.Geometry.Point(-121.79407, 38.00713), {'label': 'water'}),
+  ee.Feature(ee.Geometry.Point(-121.82497, 38.01704), {'label': 'urban'})
+]);
+Map.addLayer(points, {}, 'known points');
+// Define customization options.
+var options = {
+  title: 'NAIP DN values at three points',
+  hAxis: {title: 'Bands'},
+  vAxis: {title: 'DN'},
+  lineWidth: 1,
+  pointSize: 4,
+  series: {
+    0: {color: '00FF00'}, // green veg
+    1: {color: '0000FF'}, // water
+    2: {color: 'FF0000'}, // urban
+}};
+// Define a list of NAIP bands for X-axis labels.
+var bands = [1,2,3,4];
+// Create the chart and set options.
+var spectraChart = ui.Chart.image.regions(
+    mosaic, points, ee.Reducer.mean(), 1, 'label', bands) //here specify the reducer function
+        .setChartType('ScatterChart') 
+        .setOptions(options);
+// Display the chart.
+print(spectraChart);
+// Define and display a FeatureCollection of three known polygons.
+var polys = ee.FeatureCollection([
+  ee.Feature((greenveg), {'label': 'green veg'}), 
+ee.Feature((water), {'label': 'water'}),
+  ee.Feature((urban), {'label': 'urban'})
+]);
+Map.addLayer(polys, {}, 'known polygons');
+
+// Define customization options.
+var options = {
+  title: 'NAIP DN values at three polygons',
+  hAxis: {title: 'Bands'},
+  vAxis: {title: 'DN'},
+  lineWidth: 1,
+  pointSize: 4,
+  series: {
+    0: {color: '00FF00'}, // green veg
+    1: {color: '0000FF'}, // water
+    2: {color: 'FF0000'}, // urban
+}};
+// Define a list of NAIP bands for X-axis labels.
+var bands = [1,2,3,4];
+// Create the chart and set options.
+var spectraChart = ui.Chart.image.regions(
+    mosaic, polys, ee.Reducer.mean(), 1, 'label', bands)
+        .setChartType('ScatterChart')
+        .setOptions(options);
+var spectraChart = ui.Chart.image.regions(
+    mosaic, polys, ee.Reducer.mean(), 4, 'label', bands)
+        .setChartType('ScatterChart')
+        .setOptions(options);
+// Display the chart.
+print(spectraChart);
+// Select the ‘R’ band
+var naipR = mosaic.select(['R','N']);
+
+// Pre-define some customization options.
+var options = {
+  title: 'NAIP DN histogram, band 1, 4',
+  fontSize: 10,
+  hAxis: {title: 'DN'},
+  vAxis: {title: 'count of DN'},
+  //series: {
+    //0: {color: 'red'},
+    //1: {color: 'NIR'}
+
+};
+
+// Make the histogram, set the options.
+var histogram = ui.Chart.image.histogram({
+  image: naipR,
+  region: aoi_naip,
+  scale:1, 
+  maxPixels:1e12})
+    //.setSeriesNames(['B1:red', 'B4:NIR'])
+    .setOptions(options);
+
+// Display the histogram.
+print(histogram);
+
+//create a collection of images from the NAIP archive of top-of-atmosphere(TOA)
+//reflectance product by filtering it using dates of 2012 & geometric boundaries
+var collection = ee.ImageCollection('USDA/NAIP/DOQQ')
+  .filterDate('2012-05-20','2012-07-20')
+  .filterBounds(aoi_naip)
+print(collection);
+// Spatially mosaic the images in the collection, clip to aoi, and display.
+var mosaic = collection.mosaic().clip(aoi_naip);
+// visualize the image using true color composite
+var vizParams = {bands: ['R', 'G', 'B'],min:0,max:255};
+Map.setCenter(-122.0119, 38.0717, 11);
+Map.addLayer(mosaic, vizParams, 'NAIP true color composite');
+// calculate mean band values just within the aoi region boundaries
+var mean_image = mosaic.reduceRegion({
+  reducer: ee.Reducer.mean(), //specify reducer function, can be mean, min, max,median, etc
+  geometry: aoi_naip, // designate geometry variable
+  scale: 1, // set the spatial scale, in this case 1m
+  bestEffort: true, // always set this
+});
+print('mean_image', mean_image); //display mean values in the console;
+// Define and display a FeatureCollection of three known points.
+var points = ee.FeatureCollection([
+  ee.Feature(ee.Geometry.Point(-121.82557, 38.0193), {'label': 'green veg'}),
+  ee.Feature(ee.Geometry.Point(-121.79407, 38.00713), {'label': 'water'}),
+  ee.Feature(ee.Geometry.Point(-121.82497, 38.01704), {'label': 'urban'})
+]);
