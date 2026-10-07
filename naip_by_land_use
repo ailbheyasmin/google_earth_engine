@@ -1,3 +1,20 @@
+/*
+NAIP Spectral Analysis
+Author: Ailbhe Wallis
+
+Purpose: This is a program investigating the spectral characteristics of vegetation, water,
+and urban land cover using 2012 NAIP imagery from the GEE archive.
+
+Workflow:
+1. Loading and filtering NAIP imagery
+2. Creating a mosaic of the area of interest
+3. Calculating summary statistics
+4. Sampling known land cover locations (test points)
+5. Comparing spectral signatures
+6. Examining DN distributions with histograms
+*/
+
+// ------------------------------ Data Preparation ------------------------------
 // Create a collection of images from the NAIP archive of top-of-atmosphere (TOA)
 // reflectance product by filtering it using dates of 2012 & geometric boundaries
 var collection = ee.ImageCollection('USDA/NAIP/DOQQ')
