@@ -1,0 +1,265 @@
+/*
+Monterey Bay Unsupervised Land Cover Classification
+
+Author: Ailbhe Wallis
+
+Purpose:
+Performing an unsupervised land cover classification of Landsat 7 imagery
+using k-means clustering and interpreting the resulting land-cover classes 
+through cluster reclassification.
+
+Workflow:
+1. Defining the study area
+2. Acquiring the Landsat imagery from the GEE archive
+3. Generating training samples
+4. Training a k-means cluster model
+5. Reclassifying clusters into land-cover classes
+6. Visualising results
+7. Creating a map legend for the final map export
+*/
+
+// ----------------------------------------------------------------------------
+// STUDY AREA
+// ----------------------------------------------------------------------------
+
+// Defining a study area boundary for Monterey Bay, California
+var montereyBay = ee.Geometry.Polygon([
+  [-121.85554504394531, 36.6507925250347],
+  [-121.66397094726562, 36.64473252005425],
+  [-121.66259765625, 36.89170307169378],
+  [-121.84318542480469, 36.89499795802219]
+]);
+
+// Centering the map over the study area
+Map.setCenter(-121.78, 36.80, 10);
+
+// ----------------------------------------------------------------------------
+// IMAGE ACQUISITION
+// ----------------------------------------------------------------------------
+
+// Option 1.
+// Automatically selects the least cloudy Landsat 7 scene
+// within the specified date range
+
+var landsatCollection = ee.ImageCollection('LANDSAT/LE07/C02/T1')
+  .filterBounds(montereyBay)
+  .filterDate('2000-01-01', '2000-01-10')
+  .sort('CLOUD_COVER');
+
+var leastCloudyImage = landsatCollection
+  .first()
+  .select(['B1', 'B2', 'B3', 'B4', 'B5', 'B7']);
+
+print('Landsat 7 Image (Automatic Selection)', leastCloudyImage);
+
+// Option 2.
+// Loads a known scene directly by image ID
+
+var landsatImage = ee.Image(
+  'LANDSAT/LE07/C02/T1/LE07_043035_20000108'
+).select(['B1', 'B2', 'B3', 'B4', 'B5', 'B7']);
+
+print('Landsat 7 Image (Known Scene)', landsatImage);
+
+// Clipping the imagery to the study area
+var clippedImage = landsatImage.clip(montereyBay);
+
+// ----------------------------------------------------------------------------
+// IMAGE VISUALISATION
+// ----------------------------------------------------------------------------
+
+// Displaying a false-colour composite (Bands 5-4-3)
+Map.addLayer(
+  clippedImage,
+  {
+    bands: ['B5', 'B4', 'B3'],
+    min: 0,
+    max: 200
+  },
+  'Landsat 7 False Colour Composite'
+);
+
+// ----------------------------------------------------------------------------
+// TRAINING DATA GENERATION
+// ----------------------------------------------------------------------------
+
+// Generating a random sample of pixels to train the cluster model
+var trainingSamples = clippedImage.sample({
+  region: montereyBay,
+  scale: 30,
+  numPixels: 1000
+});
+
+print(
+  'Training Sample Preview',
+  trainingSamples.limit(5)
+);
+
+// ----------------------------------------------------------------------------
+// UNSUPERVISED CLASSIFICATION
+// ----------------------------------------------------------------------------
+
+// Defining a variable for the number of clusters to generate
+var numClusters = 10;
+
+// Training a k-means cluster model for classification
+var clusterer = ee.Clusterer.wekaKMeans(numClusters)
+  .train(trainingSamples);
+
+// Applying clustering to the image
+var clusteredImage = clippedImage.cluster(clusterer);
+
+print('Clustered Image', clusteredImage);
+
+// Displaying the raw cluster output
+Map.addLayer(
+  clusteredImage,
+  {min: 0, max: 9},
+  'Raw Clusters'
+);
+
+// ----------------------------------------------------------------------------
+// CLUSTER RECLASSIFICATION
+// ----------------------------------------------------------------------------
+
+// Reclassifying the generated k-means clusters into interpreted
+// land-cover categories after visual inspection (sanity check)
+//
+// Left side = original cluster number
+// Right side = interpreted land-cover class
+
+var fromClusters = [
+  7, 9, 2, 4, 3,
+  6, 8, 1, 5, 0
+];
+
+var toClasses = [
+  0, 5, 5, 2, 0,
+  3, 4, 4, 4, 6
+];
+
+var classifiedImage = clusteredImage.remap(
+  fromClusters,
+  toClasses,
+  0,
+  'cluster'
+);
+
+// ----------------------------------------------------------------------------
+// VISUALISATION SETTINGS
+// ----------------------------------------------------------------------------
+
+// Defining a variable describing a colour palette for the land-cover classes
+var colorTable = [
+  'ADD8E6', // Water
+  '90EE90', // Agriculture
+  '008000', // Woodland
+  'D2B48C', // Bare Earth
+  '808080', // Urban
+  '006400'  // Fallow Agriculture
+];
+
+// Creating human-readable class labels for the map legend
+var classNames = [
+  'Water',
+  'Agriculture',
+  'Woodland',
+  'Bare Earth',
+  'Urban Space',
+  'Fallow Agriculture'
+];
+
+// Creating a white background layer (optional)
+Map.addLayer(
+  ee.Image(1),
+  {palette: ['ffffff']},
+  'White Background',
+  false
+);
+
+// Displaying the final classified map
+Map.addLayer(
+  classifiedImage,
+  {
+    palette: colorTable,
+    min: 1
+  },
+  'Final Classification'
+);
+
+// ----------------------------------------------------------------------------
+// LEGEND CREATION
+// ----------------------------------------------------------------------------
+
+// Creating a panel for the legend items
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-left',
+    padding: '8px 40px'
+  }
+});
+
+// Creating a descriptive legend title
+var legendTitle = ui.Label({
+  value: 'Unsupervised Classification',
+  style: {
+    fontWeight: 'bold',
+    fontSize: '18px',
+    margin: '0 0 4px 0',
+    padding: '0'
+  }
+});
+
+legend.add(legendTitle);
+
+// Loading the label
+var loadingLabel = ui.Label(
+  'Legend',
+  {margin: '2px 0 4px 0'}
+);
+
+legend.add(loadingLabel);
+
+// Creating a single legend row containing a colour swatch 
+// and class label for each land classification type
+var makeLegendRow = function(color, name) {
+
+  var colorBox = ui.Label({
+    style: {
+      backgroundColor: '#' + color,
+      padding: '8px',
+      margin: '0 0 4px 0'
+    }
+  });
+
+  var description = ui.Label({
+    value: name,
+    style: {
+      margin: '0 0 4px 6px'
+    }
+  });
+
+  return ui.Panel({
+    widgets: [colorBox, description],
+    layout: ui.Panel.Layout.Flow('horizontal')
+  });
+};
+
+// Populating each legend entry
+classifiedImage.toDictionary().evaluate(function(result) {
+
+  loadingLabel.style().set('shown', true);
+
+  for (var i = 0; i < classNames.length; i++) {
+    legend.add(
+      makeLegendRow(
+        colorTable[i],
+        classNames[i]
+      )
+    );
+  }
+
+});
+
+// Adding the legend to map for export
+Map.add(legend);
